@@ -130,7 +130,8 @@ app.get("/logout", (req, res) => {
 // EMPLOYEE LOGIN CONTROLLER
 
 app.post("/employeeLogin", (req, res) => {
-  const sql = "SELECT * FROM employees Where email = ?";
+  console.log(req.body);
+  const sql = "SELECT * FROM employees WHERE email = ?";
   con.query(sql, [req.body.email], (err, result) => {
     if (err) {
       return res
@@ -139,18 +140,17 @@ app.post("/employeeLogin", (req, res) => {
     }
 
     if (result.length > 0) {
-      bcrypt.compare(
-        req.body.password.toString(),
-        result[0].password,
-        (err, response) => {
-          if (err) {
-            return res
-              .status(401)
-              .json({ Status: "Error", Message: "Password doesn't match" });
-          }
+      const user = result[0];
+      bcrypt.compare(req.body.password, user.password, (err, passwordMatch) => {
+        if (err) {
+          return res
+            .status(401)
+            .json({ Status: "Error", Message: "Password doesn't match" });
+        }
 
+        if (passwordMatch) {
           const token = jwt.sign(
-            { role: "employee", id: result[0].id },
+            { role: "employee", id: user.id },
             "jwt-secret-key",
             {
               expiresIn: "1d",
@@ -160,11 +160,15 @@ app.post("/employeeLogin", (req, res) => {
           return res.status(200).json({
             Status: "Success",
             Message: "Login successful",
-            id: result[0].id,
+            id: user.id,
             permit: "employee",
           });
+        } else {
+          return res
+            .status(401)
+            .json({ Status: "Error", Message: "Wrong email or password" });
         }
-      );
+      });
     } else {
       return res
         .status(401)
